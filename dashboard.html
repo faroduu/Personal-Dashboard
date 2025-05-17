@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>eBay Finance Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      background-color: #000;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      padding: 2rem;
+    }
+    h1 {
+      color: #00aaff;
+    }
+    input[type="file"] {
+      margin-top: 1rem;
+    }
+    .summary {
+      margin-top: 2rem;
+    }
+    .summary div {
+      margin: 0.5rem 0;
+    }
+    .debit {
+      color: red;
+    }
+    .credit {
+      color: limegreen;
+    }
+    canvas {
+      margin-top: 2rem;
+      background: #111;
+      padding: 1rem;
+      border-radius: 10px;
+    }
+    button {
+      margin-top: 1rem;
+      padding: 0.5rem 1rem;
+      background-color: #00aaff;
+      border: none;
+      color: white;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>eBay Finance Dashboard</h1>
+  <p>Upload your <strong>cleaned_ebay_report.csv</strong> to view your summary:</p>
+  <input type="file" id="fileInput" accept=".csv" />
+  <button onclick="exportSummary()">Export Summary</button>
+
+  <div class="summary" id="summary"></div>
+  <canvas id="chart" width="600" height="300"></canvas>
+
+  <script>
+    function exportSummary() {
+      const text = document.getElementById('summary').innerText;
+      const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "eBay_Summary.txt";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    }
+
+    document.getElementById("fileInput").addEventListener("change", function (event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const text = e.target.result;
+        const lines = text.trim().split("\n");
+        const headers = lines[0].split(",");
+        const salesIndex = headers.indexOf("Total sales (includes taxes)");
+        const costsIndex = headers.indexOf("Total selling costs");
+        const netSalesIndex = headers.indexOf("Net sales (net of selling costs)");
+
+        let totalSales = 0, totalCosts = 0, netSales = 0;
+
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(",");
+          const sales = parseFloat(cols[salesIndex].replace('£', '').replaceAll('"', '') || 0);
+          const costs = parseFloat(cols[costsIndex].replace('£', '').replaceAll('"', '') || 0);
+          const net = parseFloat(cols[netSalesIndex].replace('£', '').replaceAll('"', '') || 0);
+          totalSales += sales;
+          totalCosts += costs;
+          netSales += net;
+        }
+
+        document.getElementById("summary").innerHTML = `
+          <div>Total Sales: <strong class="credit">£${totalSales.toFixed(2)}</strong></div>
+          <div>Total Costs: <strong class="debit">£${totalCosts.toFixed(2)}</strong></div>
+          <div>Net Profit: <strong class="credit">£${netSales.toFixed(2)}</strong></div>
+        `;
+
+        const ctx = document.getElementById("chart").getContext("2d");
+        new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: ["Total Sales", "Total Costs", "Net Profit"],
+            datasets: [{
+              label: "Amount (£)",
+              data: [totalSales, totalCosts, netSales],
+              backgroundColor: ["limegreen", "red", "#00ff88"]
+            }]
+          },
+          options: {
+            plugins: {
+              legend: { labels: { color: "#fff" } }
+            },
+            scales: {
+              x: { ticks: { color: "#fff" } },
+              y: { ticks: { color: "#fff" } }
+            }
+          }
+        });
+      };
+      reader.readAsText(file);
+    });
+  </script>
+</body>
+</html>
